@@ -3,10 +3,16 @@ package main
 import (
 	"fmt"
 	"nomad/something"
+	"strings"
 )
 
+func printDivider(word string) {
+	repats := strings.Repeat("=", 10)
+	fmt.Printf("%v %v %v\n", repats, word, repats)
+}
+
 func main() {
-	fmt.Println("hi")
+	printDivider("#1.1 Packages and Imports")
 
 	something.Hello()
 	// something.bye() // error: ./main.go:12:2: cannot refer to unexported name something.bye
