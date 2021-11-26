@@ -38,6 +38,13 @@ func superAdd(numbers ...int) int {
 	return total
 }
 
+func canIDrink(age int) bool {
+	if koreanAge := age + 2; koreanAge < 18 { // 초기값을 할당 해줄수 있다.
+		return false
+	}
+	return true
+}
+
 func main() {
 	printDivider("#1.1 Packages and Imports")
 
@@ -62,4 +69,8 @@ func main() {
 	printDivider("#1.5 range args")
 	total := superAdd(1, 2, 3, 4, 5)
 	fmt.Println(total)
+
+	printDivider("#1.6 if twist")
+	ret := canIDrink(30)
+	fmt.Println(ret)
 }
