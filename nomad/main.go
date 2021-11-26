@@ -19,6 +19,12 @@ func lenAndUpper(name string) (int, string) {
 	return len(name), strings.ToUpper(name)
 }
 
+func lenAndUpperWithDefer(name string) (length int, uppercase string) { // 반환값을 반환 인자로 사용해줄 수 있다. return은 꼭 있어야 한다.
+	defer fmt.Println("I'm done") // 함수가 끝나고 호출되는 함수, 여러개라면 아래서 부터 순차적으로 실행
+	length, uppercase = len(name), strings.ToUpper(name)
+	return
+}
+
 func repeatMe(words ...string) {
 	fmt.Println(words)
 }
@@ -40,4 +46,8 @@ func main() {
 	_, upperName := lenAndUpper("jam") // ignore은 underscore(_)를 사용한다
 	fmt.Println(upperName)
 	repeatMe("A", "B", "C")
+
+	printDivider("#1.4 functions part two")
+	lenAndUpperWithDefer("jam")
+
 }
