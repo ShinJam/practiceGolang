@@ -104,4 +104,14 @@ func main() {
 	for key, value := range profile {
 		fmt.Println(key, value)
 	}
+
+	printDivider("#1.11 structs")
+	type person struct {
+		name    string
+		age     int
+		favFood []string
+	}
+	favFood := []string{"kimchi", "ramen"}
+	profileWithStruct := person{name: "jam", age: 18, favFood: favFood}
+	fmt.Println(profileWithStruct)
 }
