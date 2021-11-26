@@ -89,4 +89,19 @@ func main() {
 	printDivider("#1.7 switch")
 	ret = canIDrinkSwitch(30)
 	fmt.Println(ret)
+
+	printDivider("#1.9 Arrays and Slices")
+	names := []string{"apple", "banana", "grape"}
+	fmt.Println(names)
+	names[1] = "strawberry"
+	fmt.Println(names)
+	names = append(names, "watermelon")
+	fmt.Println(names, names[1:3])
+
+	printDivider("#1.10 maps")
+	profile := map[string]string{"name": "jam", "age": "12"}
+	fmt.Println(profile)
+	for key, value := range profile {
+		fmt.Println(key, value)
+	}
 }
