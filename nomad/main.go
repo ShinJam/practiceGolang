@@ -29,6 +29,15 @@ func repeatMe(words ...string) {
 	fmt.Println(words)
 }
 
+func superAdd(numbers ...int) int {
+	total := 0
+	for index, number := range numbers {
+		fmt.Println("index :", index)
+		total += number
+	}
+	return total
+}
+
 func main() {
 	printDivider("#1.1 Packages and Imports")
 
@@ -50,4 +59,7 @@ func main() {
 	printDivider("#1.4 functions part two")
 	lenAndUpperWithDefer("jam")
 
+	printDivider("#1.5 range args")
+	total := superAdd(1, 2, 3, 4, 5)
+	fmt.Println(total)
 }
