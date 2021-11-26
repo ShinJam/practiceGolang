@@ -45,7 +45,19 @@ func canIDrink(age int) bool {
 	return true
 }
 
+func canIDrinkSwitch(age int) bool {
+	switch koreanAge := age + 2; koreanAge {
+	case 10:
+		return false
+	case 20:
+		return true
+	}
+	return false
+}
+
 func main() {
+	var ret interface{}
+
 	printDivider("#1.1 Packages and Imports")
 
 	something.Hello()
@@ -67,10 +79,14 @@ func main() {
 	lenAndUpperWithDefer("jam")
 
 	printDivider("#1.5 range args")
-	total := superAdd(1, 2, 3, 4, 5)
-	fmt.Println(total)
+	ret = superAdd(1, 2, 3, 4, 5)
+	fmt.Println(ret)
 
 	printDivider("#1.6 if twist")
-	ret := canIDrink(30)
+	ret = canIDrink(30)
+	fmt.Println(ret)
+
+	printDivider("#1.7 switch")
+	ret = canIDrinkSwitch(30)
 	fmt.Println(ret)
 }
