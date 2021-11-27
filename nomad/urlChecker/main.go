@@ -1,19 +1,31 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"time"
 )
 
-var errRequestFailed = errors.New("request failed")
+type status struct {
+	code   int
+	reason string
+}
+
+type result struct {
+	url    string
+	status status
+}
+
+// var errRequestFailed = errors.New("request failed")
 
 func main() {
+
 	// var results map[string]string
 	//   ;cannot asign to uninitialized map
 	//   ;panic: assignment to entry in nil map
 
-	var results = make(map[string]string) // map[string]string{}
+	// var results = make(map[string]string) // map[string]string{}
+	c := make(chan result)
 
 	urls := []string{
 		"https://www.airbnb.com/",
@@ -26,26 +38,32 @@ func main() {
 		"https://www.instagram.com/",
 		"https://academy.nomadcoders.co/",
 	}
+	go printResult(c)
 	for _, url := range urls {
-		result := "OK"
-		err := hitURL(url)
-		if err != nil {
-			result = "FAILED"
-		}
-		results[url] = result
+		go hitURL(url, c)
 	}
-	for url, result := range results {
-		fmt.Println(url, result)
+	time.Sleep(5 * time.Second)
+	close(c)
+}
 
+func hitURL(url string, c chan<- result) {
+	fmt.Println("Checking url:", url)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	c <- result{
+		url: url,
+		status: status{
+			code:   resp.StatusCode,
+			reason: http.StatusText(resp.StatusCode),
+		},
 	}
 }
 
-func hitURL(url string) error {
-	fmt.Println("Checking url:", url)
-	resp, err := http.Get(url)
-	if err != nil || resp.StatusCode >= 400 {
-		fmt.Println(err, resp.StatusCode)
-		return errRequestFailed
+func printResult(c chan result) {
+	for result := range c {
+		fmt.Println(result)
 	}
-	return nil
 }
