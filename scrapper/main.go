@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -24,12 +25,13 @@ var baseURL string = "https://kr.indeed.com/"
 var jobURL string = baseURL + "jobs?q=python"
 
 func main() {
+	var wgCSV sync.WaitGroup
 	var jobs []extrasctedJob
 	c := make(chan []extrasctedJob)
 	totalPages := getPages()
 	log.Println("totalPages:", totalPages)
 	for i := 0; i < totalPages; i++ {
-		go getPage(i, c)
+		go getPage(i, c, &wgCSV)
 		// jobs = append(jobs, extractedJobs...)
 	}
 
@@ -37,12 +39,26 @@ func main() {
 		extractedJobs := <-c
 		jobs = append(jobs, extractedJobs...)
 	}
-
-	writeJobs(jobs)
+	wgCSV.Wait()
 	log.Println("Done, extracted", len(jobs))
 }
 
-func getPage(page int, mainC chan<- []extrasctedJob) {
+func writeCSV(job extrasctedJob, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	file, err := os.OpenFile("./jobs.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	checkErr(err)
+	defer file.Close()
+
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	jobSlice := []string{baseURL + "채용보기?jk=" + job.id, job.title, job.location, job.summary}
+	jwErr := w.Write(jobSlice)
+	checkErr(jwErr)
+}
+
+func getPage(page int, mainC chan<- []extrasctedJob, wg *sync.WaitGroup) {
 	var jobs []extrasctedJob
 	c := make(chan extrasctedJob)
 	pageURL := jobURL + "&limit=" + strconv.Itoa(page*50)
@@ -62,6 +78,8 @@ func getPage(page int, mainC chan<- []extrasctedJob) {
 	})
 	for i := 0; i < searchCards.Length(); i++ {
 		job := <-c
+		wg.Add(1)
+		go writeCSV(job, wg)
 		jobs = append(jobs, job)
 	}
 
@@ -108,7 +126,6 @@ func getPages() int {
 func writeJobs(jobs []extrasctedJob) {
 	file, err := os.Create("jobs.csv")
 	checkErr(err)
-
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
@@ -124,7 +141,8 @@ func writeJobs(jobs []extrasctedJob) {
 }
 
 func checkErr(err error) {
-	if err != nil {
+	switch {
+	case err != nil:
 		log.Panic(err)
 	}
 }
