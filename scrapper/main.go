@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,10 +24,11 @@ type extrasctedJob struct {
 }
 
 var baseURL string = "https://kr.indeed.com/"
-var jobURL string = baseURL + "jobs?q=python"
+var jobURL string = baseURL + "jobs?q=data"
 
 func main() {
 	defer timeTrack(time.Now(), "main")
+
 	var wgCSV sync.WaitGroup
 	var jobs []extrasctedJob
 	c := make(chan []extrasctedJob)
@@ -63,7 +65,7 @@ func writeCSV(job extrasctedJob, wg *sync.WaitGroup) {
 func getPage(page int, mainC chan<- []extrasctedJob, wg *sync.WaitGroup) {
 	var jobs []extrasctedJob
 	c := make(chan extrasctedJob)
-	pageURL := jobURL + "&limit=" + strconv.Itoa(page*50)
+	pageURL := jobURL + "&limit=50&start=" + strconv.Itoa(page*50)
 	res, err := http.Get(pageURL)
 	checkErr(err)
 	checkCode(res)
@@ -109,7 +111,6 @@ func cleanString(str string) string {
 }
 
 func getPages() int {
-	pages := 0
 	res, err := http.Get(jobURL)
 	checkErr(err)
 	checkCode(res)
@@ -118,29 +119,39 @@ func getPages() int {
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	checkErr(err)
 
-	doc.Find(".pagination").Each(func(i int, s *goquery.Selection) {
-		pages = s.Find("a").Length()
-	})
-
+	countPage := cleanString(doc.Find("#searchCountPages").Text())
+	fmt.Println(countPage)
+	// re := regexp.MustCompile(`.*([0-9]+)건`)
+	// // ref:  https://stackoverflow.com/questions/30483652/how-to-get-capturing-group-functionality-in-go-regular-expressions
+	re := regexp.MustCompile(`.* (?P<Pages>.+)건`)
+	match := re.FindStringSubmatch(countPage)[1]
+	match = strings.Join(strings.Split(match, ","), "")
+	fmt.Println(match)
+	pages, err := strconv.Atoi(match)
+	checkErr(err)
+	pages = pages / 50
+	if mod := pages % 50; mod > 0 {
+		pages += 1
+	}
 	return pages
 }
 
-func writeJobs(jobs []extrasctedJob) {
-	file, err := os.Create("jobs.csv")
-	checkErr(err)
-	w := csv.NewWriter(file)
-	defer w.Flush()
+// func writeJobs(jobs []extrasctedJob) {
+// 	file, err := os.Create("jobs.csv")
+// 	checkErr(err)
+// 	w := csv.NewWriter(file)
+// 	defer w.Flush()
 
-	headers := []string{"Link", "Title", "Location", "Summary"}
-	wErr := w.Write(headers)
-	checkErr(wErr)
+// 	headers := []string{"Link", "Title", "Location", "Summary"}
+// 	wErr := w.Write(headers)
+// 	checkErr(wErr)
 
-	for _, job := range jobs {
-		jobSlice := []string{baseURL + "채용보기?jk=" + job.id, job.title, job.location, job.summary}
-		jwErr := w.Write(jobSlice)
-		checkErr(jwErr)
-	}
-}
+// 	for _, job := range jobs {
+// 		jobSlice := []string{baseURL + "채용보기?jk=" + job.id, job.title, job.location, job.summary}
+// 		jwErr := w.Write(jobSlice)
+// 		checkErr(jwErr)
+// 	}
+// }
 
 func checkErr(err error) {
 	switch {
