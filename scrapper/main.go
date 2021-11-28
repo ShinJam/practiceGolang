@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -25,6 +26,7 @@ var baseURL string = "https://kr.indeed.com/"
 var jobURL string = baseURL + "jobs?q=python"
 
 func main() {
+	defer timeTrack(time.Now(), "main")
 	var wgCSV sync.WaitGroup
 	var jobs []extrasctedJob
 	c := make(chan []extrasctedJob)
@@ -151,4 +153,10 @@ func checkCode(res *http.Response) {
 	if res.StatusCode != 200 {
 		log.Panic("request failed with status", res.StatusCode)
 	}
+}
+
+func timeTrack(start time.Time, name string) {
+	// ref: https://coderwall.com/p/cp5fya/measuring-execution-time-in-go
+	elapsed := time.Since(start)
+	log.Printf("%s took %s", name, elapsed)
 }
