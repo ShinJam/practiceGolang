@@ -1,7 +1,7 @@
-//main.go
 package main
 
 import (
+	"chat/auth"
 	"chat/config"
 	"chat/repository"
 	"flag"
@@ -17,12 +17,18 @@ func main() {
 	flag.Parse()
 	config.CreateRedisClient()
 
-	wsServer := NewWebsocketServer(&repository.RoomRepository{Db: db}, &repository.UserRepository{Db: db})
+	// Define the userRepo here, to use it in bothe the wsServer & the API
+	userRepository := &repository.UserRepository{Db: db}
+
+	wsServer := NewWebsocketServer(&repository.RoomRepository{Db: db}, userRepository)
 	go wsServer.Run()
 
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	api := &API{UserRepository: userRepository}
+	// Add the login route
+	http.HandleFunc("/api/login", api.HandleLogin)
+	http.HandleFunc("/ws", auth.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		ServeWs(wsServer, w, r)
-	})
+	}))
 
 	fs := http.FileServer(http.Dir("./public"))
 	http.Handle("/", fs)

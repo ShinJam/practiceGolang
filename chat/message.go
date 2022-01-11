@@ -97,11 +97,11 @@ func (server *WsServer) listenPubSubChannel() {
 		}
 	}
 }
-
 func (server *WsServer) handleUserJoinPrivate(message Message) {
 	// Find client for given user, if found add the user to the room.
-	targetClient := server.findClientByID(message.Message)
-	if targetClient != nil {
+	// Expect multiple clients for one user now.
+	targetClients := server.findClientsByID(message.Message)
+	for _, targetClient := range targetClients {
 		targetClient.joinRoom(message.Target.GetName(), message.Sender)
 	}
 }
@@ -126,12 +126,13 @@ func (server *WsServer) handleUserJoined(message Message) {
 }
 
 func (server *WsServer) handleUserLeft(message Message) {
-	// Remove the user from the slice
 	for i, user := range server.users {
 		if user.GetId() == message.Sender.GetId() {
 			server.users[i] = server.users[len(server.users)-1]
 			server.users = server.users[:len(server.users)-1]
+			break // added this break to only remove the first occurrence
 		}
 	}
+
 	server.broadcastToClients(message.encode())
 }

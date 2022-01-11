@@ -55,8 +55,11 @@ func (server *WsServer) Run() {
 }
 
 func (server *WsServer) registerClient(client *Client) {
-	// Add user to the repo
-	server.userRepository.AddUser(client)
+	// First check if the user does not exist yet.
+	if user := server.findUserByID(client.ID.String()); user == nil {
+		// Add user to the repo
+		server.userRepository.AddUser(client)
+	}
 
 	// Publish user in PubSub
 	server.publishClientJoined(client)
@@ -68,9 +71,6 @@ func (server *WsServer) registerClient(client *Client) {
 func (server *WsServer) unregisterClient(client *Client) {
 	if _, ok := server.clients[client]; ok {
 		delete(server.clients, client)
-
-		// Remove user from repo
-		server.userRepository.RemoveUser(client)
 
 		// Publish user left in PubSub
 		server.publishClientLeft(client)
@@ -128,13 +128,17 @@ func (server *WsServer) createRoom(name string, private bool) *Room {
 }
 
 func (server *WsServer) listOnlineClients(client *Client) {
-	// NEW: Use the users slice instead of the client map
+	// Find unique users instead of returning all users.
+	var uniqueUsers = make(map[string]bool)
 	for _, user := range server.users {
-		message := &Message{
-			Action: UserJoinedAction,
-			Sender: user,
+		if ok := uniqueUsers[user.GetId()]; !ok {
+			message := &Message{
+				Action: UserJoinedAction,
+				Sender: user,
+			}
+			uniqueUsers[user.GetId()] = true
+			client.send <- message.encode()
 		}
-		client.send <- message.encode()
 	}
 }
 
@@ -150,14 +154,14 @@ func (server *WsServer) findRoomByID(ID string) *Room {
 	return foundRoom
 }
 
-func (server *WsServer) findClientByID(ID string) *Client {
-	var foundClient *Client
+func (server *WsServer) findClientsByID(ID string) []*Client {
+	// Find all clients for given user ID.
+	var foundClients []*Client
 	for client := range server.clients {
-		if client.ID.String() == ID {
-			foundClient = client
-			break
+		if client.GetId() == ID {
+			foundClients = append(foundClients, client)
 		}
 	}
 
-	return foundClient
+	return foundClients
 }

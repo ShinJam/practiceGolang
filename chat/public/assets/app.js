@@ -6,25 +6,66 @@ var app = new Vue({
     roomInput: null,
     rooms: [],
     user: {
-      name: ""
+      name: "",
+      username: "",
+      password: "",
+      token: ""
     },
-    users: []
+    users: [],
+    initialReconnectDelay: 1000,
+    currentReconnectDelay: 0,
+    maxReconnectDelay: 16000,
+    loginError: ""
   },
-  // mounted: function () {
-  //   this.connectToWebsocket();
-  // },
+  mounted: function () {
+  },
   methods: {
     connect() {
       this.connectToWebsocket();
     },
+    async login() {
+      try {
+        const result = await axios.post("http://" + location.host + '/api/login', this.user);
+        if (result.data.status !== "undefined" && result.data.status == "error") {
+          this.loginError = "Login failed";
+        } else {
+          this.user.token = result.data;
+          this.connectToWebsocket();
+        }
+      } catch (e) {
+        this.loginError = "Login failed";
+        console.log(e);
+      }
+    },
     connectToWebsocket() {
-      // Pass the name paramter when connecting.
-      this.ws = new WebSocket(this.serverUrl + "?name=" + this.user.name);
+      if (this.user.token != "") {
+        this.ws = new WebSocket(this.serverUrl + "?bearer=" + this.user.token);
+      } else {
+        this.ws = new WebSocket(this.serverUrl + "?name=" + this.user.name);
+      }
       this.ws.addEventListener('open', (event) => { this.onWebsocketOpen(event) });
       this.ws.addEventListener('message', (event) => { this.handleNewMessage(event) });
+      this.ws.addEventListener('close', (event) => { this.onWebsocketClose(event) });
     },
     onWebsocketOpen() {
       console.log("connected to WS!");
+      this.currentReconnectDelay = 1000;
+    },
+
+    onWebsocketClose() {
+      this.ws = null;
+
+      setTimeout(() => {
+        this.reconnectToWebsocket();
+      }, this.currentReconnectDelay);
+
+    },
+
+    reconnectToWebsocket() {
+      if (this.currentReconnectDelay < this.maxReconnectDelay) {
+        this.currentReconnectDelay *= 2;
+      }
+      this.connectToWebsocket();
     },
 
     handleNewMessage(event) {
@@ -49,13 +90,8 @@ var app = new Vue({
           default:
             break;
         }
+
       }
-    },
-    handleRoomJoined(msg) {
-      room = msg.target;
-      room.name = room.private ? msg.sender.name : room.name;
-      room["messages"] = [];
-      this.rooms.push(room);
     },
     handleChatMessage(msg) {
       const room = this.findRoom(msg.target.id);
@@ -64,14 +100,23 @@ var app = new Vue({
       }
     },
     handleUserJoined(msg) {
-      this.users.push(msg.sender);
+      if (!this.userExists(msg.sender)) {
+        this.users.push(msg.sender);
+      }
     },
     handleUserLeft(msg) {
       for (let i = 0; i < this.users.length; i++) {
         if (this.users[i].id == msg.sender.id) {
           this.users.splice(i, 1);
+          return;
         }
       }
+    },
+    handleRoomJoined(msg) {
+      room = msg.target;
+      room.name = room.private ? msg.sender.name : room.name;
+      room["messages"] = [];
+      this.rooms.push(room);
     },
     sendMessage(room) {
       if (room.newMessage !== "") {
@@ -93,25 +138,30 @@ var app = new Vue({
         }
       }
     },
-    // we removed a line in the function below
-    // since we only save new rooms when the server tells so
     joinRoom() {
       this.ws.send(JSON.stringify({ action: 'join-room', message: this.roomInput }));
       this.roomInput = "";
     },
-    joinPrivateRoom(room) {
-      this.ws.send(JSON.stringify({ action: 'join-room-private', message: room.id }));
-    },
     leaveRoom(room) {
-      this.ws.send(JSON.stringify({ action: 'leave-room', message: room.name }));
+      this.ws.send(JSON.stringify({ action: 'leave-room', message: room.id }));
 
       for (let i = 0; i < this.rooms.length; i++) {
-        if (this.rooms[i].name === room.name) {
+        if (this.rooms[i].id === room.id) {
           this.rooms.splice(i, 1);
           break;
         }
       }
+    },
+    joinPrivateRoom(room) {
+      this.ws.send(JSON.stringify({ action: 'join-room-private', message: room.id }));
+    },
+    userExists(user) {
+      for (let i = 0; i < this.users.length; i++) {
+        if (this.users[i].id == user.id) {
+          return true;
+        }
+      }
+      return false;
     }
   }
-
 })

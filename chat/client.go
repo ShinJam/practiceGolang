@@ -2,6 +2,7 @@
 package main
 
 import (
+	"chat/auth"
 	"chat/config"
 	"chat/models"
 	"encoding/json"
@@ -48,15 +49,18 @@ type Client struct {
 	ID       uuid.UUID `json:"id"`
 }
 
-func newClient(conn *websocket.Conn, wsServer *WsServer, name string) *Client {
-	return &Client{
-		ID:       uuid.New(),
+func newClient(conn *websocket.Conn, wsServer *WsServer, name string, ID string) *Client {
+	client := &Client{
 		Name:     name,
 		conn:     conn,
 		wsServer: wsServer,
 		send:     make(chan []byte, 256),
 		rooms:    make(map[*Room]bool),
 	}
+
+	// Use existing User ID
+	client.ID, _ = uuid.Parse(ID)
+	return client
 }
 
 func (client *Client) GetName() string {
@@ -139,12 +143,14 @@ func (client *Client) disconnect() {
 
 // ServeWs handles websocket requests from clients requests.
 func ServeWs(wsServer *WsServer, w http.ResponseWriter, r *http.Request) {
-	name, ok := r.URL.Query()["name"]
-
-	if !ok || len(name[0]) < 1 {
-		log.Println("Url Param 'name' is missing")
+	// Instead get the User from the context
+	userCtxValue := r.Context().Value(auth.UserContextKey)
+	if userCtxValue == nil {
+		log.Println("Not authenticated")
 		return
 	}
+
+	user := userCtxValue.(models.User)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -152,7 +158,8 @@ func ServeWs(wsServer *WsServer, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := newClient(conn, wsServer, name[0])
+	// Now user the context user when creating a new Client.
+	client := newClient(conn, wsServer, user.GetName(), user.GetId())
 
 	go client.writePump()
 	go client.readPump()
