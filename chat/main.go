@@ -2,6 +2,8 @@
 package main
 
 import (
+	"chat/config"
+	"chat/repository"
 	"flag"
 	"log"
 	"net/http"
@@ -10,9 +12,11 @@ import (
 var addr = flag.String("addr", ":8080", "http server address")
 
 func main() {
+	db := config.InitDB()
+	defer db.Close()
 	flag.Parse()
 
-	wsServer := NewWebsocketServer()
+	wsServer := NewWebsocketServer(&repository.RoomRepository{Db: db}, &repository.UserRepository{Db: db})
 	go wsServer.Run()
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {

@@ -81,3 +81,8 @@ func (room *Room) GetId() string {
 func (room *Room) GetName() string {
 	return room.Name
 }
+
+// Add the GetPrivate method to make Room compatible with model.Room interface
+func (room *Room) GetPrivate() bool {
+	return room.Private
+}

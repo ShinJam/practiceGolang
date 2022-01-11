@@ -2,6 +2,7 @@
 package main
 
 import (
+	"chat/models"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -228,10 +229,8 @@ func (client *Client) handleJoinRoomPrivateMessage(message Message) {
 
 }
 
-// New method
-// Joining a room both for public and private roooms
-// When joiing a private room a sender is passed as the opposing party
-func (client *Client) joinRoom(roomName string, sender *Client) {
+// Change the type sender from Client to the User interface.
+func (client *Client) joinRoom(roomName string, sender models.User) {
 
 	room := client.wsServer.findRoomByName(roomName)
 	if room == nil {
@@ -260,9 +259,8 @@ func (client *Client) isInRoom(room *Room) bool {
 	return false
 }
 
-// New method
-// Notify the client of the new room he/she joined
-func (client *Client) notifyRoomJoined(room *Room, sender *Client) {
+func (client *Client) notifyRoomJoined(room *Room, sender models.User) {
+
 	message := Message{
 		Action: RoomJoinedAction,
 		Target: room,
@@ -270,4 +268,9 @@ func (client *Client) notifyRoomJoined(room *Room, sender *Client) {
 	}
 
 	client.send <- message.encode()
+}
+
+// Add the GetId method to make Client compatible with model.User interface
+func (client *Client) GetId() string {
+	return client.ID.String()
 }
