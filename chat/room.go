@@ -1,12 +1,18 @@
 // room.go
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 const welcomeMessage = "%s joined the room"
 
 type Room struct {
-	name       string
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	Private    bool      `json:"private"`
 	clients    map[*Client]bool
 	register   chan *Client
 	unregister chan *Client
@@ -14,9 +20,11 @@ type Room struct {
 }
 
 // NewRoom creates a new Room
-func NewRoom(name string) *Room {
+func NewRoom(name string, private bool) *Room {
 	return &Room{
-		name:       name,
+		ID:         uuid.New(),
+		Name:       name,
+		Private:    private,
 		clients:    make(map[*Client]bool),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
@@ -41,15 +49,14 @@ func (room *Room) RunRoom() {
 }
 
 func (room *Room) registerClientInRoom(client *Client) {
-	// by sending the message first the new user won't see his own message.
-	room.notifyClientJoined(client)
+	if !room.Private {
+		room.notifyClientJoined(client)
+	}
 	room.clients[client] = true
 }
 
 func (room *Room) unregisterClientInRoom(client *Client) {
-	if _, ok := room.clients[client]; ok {
-		delete(room.clients, client)
-	}
+	delete(room.clients, client)
 }
 
 func (room *Room) broadcastToClientsInRoom(message []byte) {
@@ -60,13 +67,17 @@ func (room *Room) broadcastToClientsInRoom(message []byte) {
 func (room *Room) notifyClientJoined(client *Client) {
 	message := &Message{
 		Action:  SendMessageAction,
-		Target:  room.name,
+		Target:  room,
 		Message: fmt.Sprintf(welcomeMessage, client.GetName()),
 	}
 
 	room.broadcastToClientsInRoom(message.encode())
 }
 
+func (room *Room) GetId() string {
+	return room.ID.String()
+}
+
 func (room *Room) GetName() string {
-	return room.name
+	return room.Name
 }
