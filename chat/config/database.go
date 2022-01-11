@@ -22,7 +22,7 @@ func InitDB() *sql.DB {
 	`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
-		log.Fatal("%q: %s\n", err, sqlStmt)
+		log.Fatalf("%q: %s\n", err, sqlStmt)
 	}
 
 	sqlStmt = `	
@@ -33,7 +33,7 @@ func InitDB() *sql.DB {
 	`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
-		log.Fatal("%q: %s\n", err, sqlStmt)
+		log.Fatalf("%q: %s\n", err, sqlStmt)
 	}
 
 	return db

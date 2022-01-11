@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const PubSubGeneralChannel = "general"
+
 type WsServer struct {
 	clients        map[*Client]bool
 	register       chan *Client
@@ -36,6 +38,8 @@ func NewWebsocketServer(roomRepository models.RoomRepository, userRepository mod
 
 // Run our websocket server, accepting various requests
 func (server *WsServer) Run() {
+	go server.listenPubSubChannel()
+
 	for {
 		select {
 
@@ -51,33 +55,25 @@ func (server *WsServer) Run() {
 }
 
 func (server *WsServer) registerClient(client *Client) {
-	// NEW:  Add user to the repo
+	// Add user to the repo
 	server.userRepository.AddUser(client)
 
-	// Existing actions
-	server.notifyClientJoined(client)
+	// Publish user in PubSub
+	server.publishClientJoined(client)
+
 	server.listOnlineClients(client)
 	server.clients[client] = true
-
-	// NEW: Add user to the user slice
-	server.users = append(server.users)
 }
 
 func (server *WsServer) unregisterClient(client *Client) {
 	if _, ok := server.clients[client]; ok {
 		delete(server.clients, client)
-		server.notifyClientLeft(client)
 
-		// NEW: Remove user from slice
-		for i, user := range server.users {
-			if user.GetId() == client.GetId() {
-				server.users[i] = server.users[len(server.users)-1]
-				server.users = server.users[:len(server.users)-1]
-			}
-		}
-
-		// NEW: Remove user from repo
+		// Remove user from repo
 		server.userRepository.RemoveUser(client)
+
+		// Publish user left in PubSub
+		server.publishClientLeft(client)
 	}
 }
 
@@ -129,24 +125,6 @@ func (server *WsServer) createRoom(name string, private bool) *Room {
 	server.rooms[room] = true
 
 	return room
-}
-
-func (server *WsServer) notifyClientJoined(client *Client) {
-	message := &Message{
-		Action: UserJoinedAction,
-		Sender: client,
-	}
-
-	server.broadcastToClients(message.encode())
-}
-
-func (server *WsServer) notifyClientLeft(client *Client) {
-	message := &Message{
-		Action: UserLeftAction,
-		Sender: client,
-	}
-
-	server.broadcastToClients(message.encode())
 }
 
 func (server *WsServer) listOnlineClients(client *Client) {

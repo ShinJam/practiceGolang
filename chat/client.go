@@ -2,6 +2,7 @@
 package main
 
 import (
+	"chat/config"
 	"chat/models"
 	"encoding/json"
 	"log"
@@ -211,12 +212,9 @@ func (client *Client) handleLeaveRoomMessage(message Message) {
 	room.unregister <- client
 }
 
-// New method
-// When joining a private room we will combine the IDs of the users
-// Then we will bothe join the client and the target.
 func (client *Client) handleJoinRoomPrivateMessage(message Message) {
-
-	target := client.wsServer.findClientByID(message.Message)
+	// instead of searching for a client, search for User by the given ID.
+	target := client.wsServer.findUserByID(message.Message)
 	if target == nil {
 		return
 	}
@@ -224,13 +222,18 @@ func (client *Client) handleJoinRoomPrivateMessage(message Message) {
 	// create unique room name combined to the two IDs
 	roomName := message.Message + client.ID.String()
 
-	client.joinRoom(roomName, target)
-	target.joinRoom(roomName, client)
+	// Join room
+	joinedRoom := client.joinRoom(roomName, target)
 
+	// Instead of instantaneously joining the target client.
+	// Let the target client join with a invite request over pub/sub
+	if joinedRoom != nil {
+		client.inviteTargetUser(target, joinedRoom)
+	}
 }
 
-// Change the type sender from Client to the User interface.
-func (client *Client) joinRoom(roomName string, sender models.User) {
+// JoinRoom now returns a room or nil
+func (client *Client) joinRoom(roomName string, sender models.User) *Room {
 
 	room := client.wsServer.findRoomByName(roomName)
 	if room == nil {
@@ -239,7 +242,7 @@ func (client *Client) joinRoom(roomName string, sender models.User) {
 
 	// Don't allow to join private rooms through public room message
 	if sender == nil && room.Private {
-		return
+		return nil
 	}
 
 	if !client.isInRoom(room) {
@@ -247,7 +250,7 @@ func (client *Client) joinRoom(roomName string, sender models.User) {
 		room.register <- client
 		client.notifyRoomJoined(room, sender)
 	}
-
+	return room
 }
 
 // New method
@@ -273,4 +276,18 @@ func (client *Client) notifyRoomJoined(room *Room, sender models.User) {
 // Add the GetId method to make Client compatible with model.User interface
 func (client *Client) GetId() string {
 	return client.ID.String()
+}
+
+// Send out invite message over pub/sub in the general channel.
+func (client *Client) inviteTargetUser(target models.User, room *Room) {
+	inviteMessage := &Message{
+		Action:  JoinRoomPrivateAction,
+		Message: target.GetId(),
+		Target:  room,
+		Sender:  client,
+	}
+
+	if err := config.Redis.Publish(ctx, PubSubGeneralChannel, inviteMessage.encode()).Err(); err != nil {
+		log.Println(err)
+	}
 }

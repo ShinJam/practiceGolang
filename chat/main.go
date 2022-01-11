@@ -15,6 +15,7 @@ func main() {
 	db := config.InitDB()
 	defer db.Close()
 	flag.Parse()
+	config.CreateRedisClient()
 
 	wsServer := NewWebsocketServer(&repository.RoomRepository{Db: db}, &repository.UserRepository{Db: db})
 	go wsServer.Run()
